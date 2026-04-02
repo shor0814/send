@@ -31,6 +31,8 @@ module.exports = function(state, body = '') {
         <meta name="theme-color" content="#220033" />
         <meta name="msapplication-TileColor" content="#220033" />
 
+        <script nonce=${state.cspNonce}>(function(){try{var s=localStorage.getItem('colorScheme'),d=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;if(s==='dark'||(s===null&&d))document.documentElement.classList.add('dark')}catch(e){}})()</script>
+
         <link rel="manifest" href="/app.webmanifest" />
         <link rel="stylesheet" type="text/css" href="/inter.css" />
         <style nonce=${state.cspNonce}>

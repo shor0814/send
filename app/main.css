@@ -281,47 +281,45 @@ select {
   }
 }
 
-@screen dark {
-  body {
-    @apply text-grey-10;
+html.dark body {
+  @apply text-grey-10;
 
-    background-image: unset;
-  }
+  background-image: unset;
+}
 
-  .btn {
-    @apply bg-primary;
-    @apply text-white;
-  }
+html.dark .btn {
+  @apply bg-primary;
+  @apply text-white;
+}
 
-  .btn:hover {
-    @apply bg-primary_accent;
-  }
+html.dark .btn:hover {
+  @apply bg-primary_accent;
+}
 
-  .btn:focus {
-    @apply bg-primary_accent;
-  }
+html.dark .btn:focus {
+  @apply bg-primary_accent;
+}
 
-  .link-primary {
-    @apply text-primary;
-  }
+html.dark .link-primary {
+  @apply text-primary;
+}
 
-  .link-primary:hover {
-    @apply text-primary_accent;
-  }
+html.dark .link-primary:hover {
+  @apply text-primary_accent;
+}
 
-  .link-primary:focus {
-    @apply text-primary_accent;
-  }
+html.dark .link-primary:focus {
+  @apply text-primary_accent;
+}
 
-  .main > section {
-    @apply bg-grey-90;
-  }
+html.dark .main > section {
+  @apply bg-grey-90;
+}
 
-  @screen md {
-    .main > section {
-      @apply border-default;
-      @apply border-grey-80;
-    }
+@screen md {
+  html.dark .main > section {
+    @apply border-default;
+    @apply border-grey-80;
   }
 }
 

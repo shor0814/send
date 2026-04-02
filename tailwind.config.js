@@ -24,14 +24,14 @@ const colors = {
 
 module.exports = {
   purge: false,
+  darkMode: 'class',
   theme: {
     colors: colors,
     screens: {
       sm: '576px',
       md: '768px',
       lg: '992px',
-      xl: '1200px',
-      dark: { raw: '(prefers-color-scheme: dark)' }
+      xl: '1200px'
     },
     fontFamily: {
       sans: [

@@ -38,7 +38,7 @@ FROM node:20-alpine
 
 RUN set -x \
   # Change node uid/gid
-  && apk --no-cache add shadow \
+  && apk --no-cache add shadow openssl \
   && groupmod -g 1001 node \
   && usermod -u 1001 -g 1001 node
 
@@ -65,6 +65,7 @@ COPY --chown=app:app docker-entrypoint.sh ./
 COPY --chown=app:app --from=builder /app/dist dist
 
 RUN npm ci --production && npm cache clean --force
+RUN node_modules/.bin/prisma generate
 RUN mkdir -p /app/.config/configstore
 RUN ln -s dist/version.json version.json
 RUN chmod +x docker-entrypoint.sh

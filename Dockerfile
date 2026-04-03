@@ -5,7 +5,7 @@
 ##
 
 # Build project
-FROM node:16.13-alpine3.13 AS builder
+FROM node:20-alpine AS builder
 
 RUN set -x \
   # Change node uid/gid
@@ -34,7 +34,7 @@ RUN set -x \
     && npm run build
 
 # Main image
-FROM node:16.13-alpine3.13
+FROM node:20-alpine
 
 RUN set -x \
   # Change node uid/gid
@@ -60,14 +60,17 @@ COPY --chown=app:app app app
 COPY --chown=app:app common common
 COPY --chown=app:app public/locales public/locales
 COPY --chown=app:app server server
+COPY --chown=app:app prisma prisma
+COPY --chown=app:app docker-entrypoint.sh ./
 COPY --chown=app:app --from=builder /app/dist dist
 
 RUN npm ci --production && npm cache clean --force
 RUN mkdir -p /app/.config/configstore
 RUN ln -s dist/version.json version.json
+RUN chmod +x docker-entrypoint.sh
 
 ENV PORT=1443
 
 EXPOSE ${PORT}
 
-CMD ["node", "server/bin/prod.js"]
+CMD ["./docker-entrypoint.sh"]

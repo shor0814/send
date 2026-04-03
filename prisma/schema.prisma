@@ -1,0 +1,209 @@
+// Sourced from thunderbird/tbpro-add-on (MPL-2.0)
+// https://github.com/thunderbird/tbpro-add-on/blob/main/packages/send/backend/prisma/schema.prisma
+// Full schema retained verbatim for forward migration-path compatibility with tbpro self-hosting.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String       @id @unique @default(uuid()) @db.Uuid
+  email               String?
+  thundermailEmail    String?      @unique
+  name                String?
+  publicKey           String?
+  tier                UserTier
+  createdAt           DateTime?
+  updatedAt           DateTime?
+  activatedAt         DateTime?
+  uniqueHash          String?
+  hashedPassword      String?
+  oidcSubject         String?      @unique
+  backupKeypair       String?
+  backupContainerKeys String?
+  backupKeystring     String?
+  backupSalt          String?
+  containers          Container[]
+  invitations         Invitation[] @relation("Recipient")
+  groups              Membership[]
+  profile             Profile?
+  shares              Share[]      @relation("Sender")
+  uploads             Upload[]
+  isFTUEComplete      Boolean      @default(false)
+}
+
+model Profile {
+  mozid        String  @unique
+  avatar       String?
+  userId       String  @id @unique @default(uuid()) @db.Uuid
+  accessToken  String?
+  refreshToken String?
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Group {
+  id        Int        @id @default(autoincrement())
+  container Container?
+  members   Membership[]
+}
+
+model Membership {
+  groupId    Int
+  userId     String @db.Uuid
+  permission Int    @default(0)
+  group      Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user       User   @relation(fields: [userId], references: [id])
+
+  @@id([groupId, userId])
+}
+
+model Share {
+  id          Int          @id @default(autoincrement())
+  containerId String       @db.Uuid
+  senderId    String       @db.Uuid
+  accessLinks AccessLink[]
+  invitations Invitation[]
+  container   Container    @relation("SharedFolder", fields: [containerId], references: [id], onDelete: Cascade)
+  sender      User         @relation("Sender", fields: [senderId], references: [id])
+}
+
+model Invitation {
+  id          Int              @id @default(autoincrement())
+  shareId     Int
+  wrappedKey  String
+  recipientId String           @db.Uuid
+  status      InvitationStatus @default(PENDING)
+  permission  Int              @default(0)
+  recipient   User             @relation("Recipient", fields: [recipientId], references: [id])
+  share       Share            @relation(fields: [shareId], references: [id], onDelete: Cascade)
+}
+
+model AccessLink {
+  id                   String    @unique
+  shareId              Int
+  wrappedKey           String
+  salt                 String
+  challengeKey         String
+  challengeSalt        String
+  challengeCiphertext  String
+  challengePlaintext   String
+  permission           Int       @default(0)
+  expiryDate           DateTime?
+  passwordHash         String?
+  retryCount           Int       @default(0)
+  locked               Boolean   @default(false)
+  share                Share     @relation(fields: [shareId], references: [id], onDelete: Cascade)
+}
+
+model Container {
+  id        String        @id @unique @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime?
+  updatedAt DateTime?
+  type      ContainerType
+  shareOnly Boolean       @default(false)
+  ownerId   String        @db.Uuid
+  groupId   Int           @unique
+  wrappedKey String?
+  parentId  String?       @db.Uuid
+  isDefault Boolean       @default(false)
+  group     Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  owner     User          @relation(fields: [ownerId], references: [id])
+  parent    Container?    @relation("Nesting", fields: [parentId], references: [id])
+  children  Container[]   @relation("Nesting")
+  items     Item[]
+  shares    Share[]       @relation("SharedFolder")
+  tags      Tag[]         @relation("ContainerToTag")
+}
+
+model Item {
+  id          Int       @id @default(autoincrement())
+  name        String
+  wrappedKey  String
+  containerId String    @db.Uuid
+  uploadId    String    @db.Uuid
+  type        ItemType
+  multipart   Boolean   @default(false)
+  totalSize   BigInt?
+  createdAt   DateTime?
+  updatedAt   DateTime?
+  container   Container @relation(fields: [containerId], references: [id], onDelete: Cascade)
+  upload      Upload    @relation(fields: [uploadId], references: [id])
+  tags        Tag[]     @relation("ItemToTag")
+}
+
+model Upload {
+  id         String    @id @default(uuid()) @db.Uuid
+  size       BigInt
+  ownerId    String    @db.Uuid
+  type       String
+  createdAt  DateTime?
+  reported   Boolean   @default(false)
+  reportedAt DateTime?
+  part       Int?
+  fileHash   String?
+  items      Item[]
+  owner      User      @relation(fields: [ownerId], references: [id])
+}
+
+model SuspiciousFile {
+  id       String @id @unique @default(uuid()) @db.Uuid
+  fileHash String @unique
+}
+
+model Tag {
+  id         Int         @id @default(autoincrement())
+  name       String      @unique
+  color      String
+  containers Container[] @relation("ContainerToTag")
+  items      Item[]      @relation("ItemToTag")
+}
+
+model Login {
+  fxasession String    @id
+  createdAt  DateTime?
+}
+
+model Verification {
+  id        String   @id @unique @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+  code      String
+}
+
+model EncryptedPassphrase {
+  id                    String   @id @unique @default(uuid()) @db.Uuid
+  createdAt             DateTime @default(now())
+  encryptedPassphrase   String
+  wrappedEncryptionKey  String
+  salt                  String
+  codeSalt              String
+}
+
+enum UserTier {
+  PRO
+  EPHEMERAL
+  FREE
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  DECLINED
+}
+
+enum ContainerType {
+  CONVERSATION
+  FOLDER
+}
+
+enum ItemType {
+  MESSAGE
+  FILE
+}

@@ -1,7 +1,7 @@
 {
   "name": "send",
   "description": "File Sharing Experiment",
-  "version": "3.4.27",
+  "version": "3.5.0",
   "author": "Mozilla (https://mozilla.org)",
   "contributors": [
     "Tim Visee <3a4fb3964f@sinenomine.email> (https://timvisee.com)"
@@ -133,16 +133,14 @@
     "webpack-unassert-loader": "^1.2.0"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "prisma": "^5.22.0",
     "@dannycoates/express-ws": "^5.0.3",
     "@fluent/bundle": "^0.17.1",
     "@fluent/langneg": "^0.6.2",
     "@google-cloud/storage": "^6.2.3",
+    "@prisma/client": "^5.22.0",
     "@sentry/node": "^7.7.0",
     "aws-sdk": "^2.1109.0",
+    "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.0",
     "choo": "^7.0.0",
     "cldr-core": "^35.1.0",
@@ -152,8 +150,10 @@
     "double-ended-queue": "^2.1.0-0",
     "express": "^4.17.3",
     "helmet": "^3.23.3",
+    "jsonwebtoken": "^9.0.3",
     "mozlog": "^3.0.1",
     "node-fetch": "^2.6.7",
+    "prisma": "^5.22.0",
     "redis": "^3.1.1",
     "redis-mock": "^0.47.0",
     "selenium-standalone": "^6.24.0",

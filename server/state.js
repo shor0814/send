@@ -5,6 +5,7 @@ const getTranslator = require('./locale');
 const { getFxaConfig } = require('./fxa');
 const fs = require('fs');
 const path = require('path');
+const { version } = require('../package.json');
 
 module.exports = async function(req) {
   const locale = (() => {
@@ -80,6 +81,7 @@ module.exports = async function(req) {
     robots,
     authConfig,
     prefs,
-    layout
+    layout,
+    buildVersion: version
   };
 };

@@ -73,6 +73,9 @@ module.exports = function(state, emit) {
           ${myUploads}
         </div>
       </section>
+      <p class="text-center text-grey-40 dark:text-grey-60 text-xs mt-2 pb-1 select-none">
+        v${state.buildVersion || '?'}
+      </p>
     </main>
   `;
 };

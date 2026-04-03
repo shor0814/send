@@ -107,15 +107,48 @@ module.exports = function(ws, req) {
       if (localUser && localUser.id) {
         try {
           const actualBytes = limiter.length || 0;
+
+          // Find or create the user's default container (lazy creation)
+          let container = await prisma.container.findFirst({
+            where: { ownerId: localUser.id, isDefault: true }
+          });
+          if (!container) {
+            const group = await prisma.group.create({ data: {} });
+            container = await prisma.container.create({
+              data: {
+                name: 'My Files',
+                type: 'FOLDER',
+                isDefault: true,
+                ownerId: localUser.id,
+                groupId: group.id,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              }
+            });
+          }
+
+          const uploadId = crypto.randomUUID();
           await prisma.upload.create({
             data: {
-              id: crypto.randomUUID(),
+              id: uploadId,
               sendFileId: newId,
-              name: fileInfo.name || null,
               size: BigInt(actualBytes),
               ownerId: localUser.id,
               type: 'application/octet-stream',
               createdAt: new Date()
+            }
+          });
+
+          // Create Item with filename and wrappedKey (plaintext for now — key wrapping is a future phase)
+          await prisma.item.create({
+            data: {
+              name: fileInfo.name || 'unnamed',
+              wrappedKey: fileInfo.secretKey || '',
+              containerId: container.id,
+              uploadId,
+              type: 'FILE',
+              createdAt: new Date(),
+              updatedAt: new Date()
             }
           });
         } catch (e) {

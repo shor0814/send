@@ -100,12 +100,6 @@ export default function(state, emitter) {
       });
       if (res.ok) {
         state.myUploads = state.myUploads.filter(u => u.id !== sendFileId);
-        // Remove secret key from localStorage
-        try {
-          const keys = JSON.parse(localStorage.getItem('sendFileKeys') || '{}');
-          delete keys[sendFileId];
-          localStorage.setItem('sendFileKeys', JSON.stringify(keys));
-        } catch (e) {}
         render();
       }
     } catch (e) {
@@ -209,16 +203,6 @@ export default function(state, emitter) {
       faviconProgressbar.updateFavicon(0);
 
       state.storage.addFile(ownedFile);
-      // Save secretKey to localStorage so My Uploads can construct download links
-      if (state.user.isLocalAuth && ownedFile.id && ownedFile.secretKey) {
-        try {
-          const keys = JSON.parse(localStorage.getItem('sendFileKeys') || '{}');
-          keys[ownedFile.id] = ownedFile.secretKey;
-          localStorage.setItem('sendFileKeys', JSON.stringify(keys));
-        } catch (e) {
-          // non-fatal
-        }
-      }
       // TODO integrate password into /upload request
       if (archive.password) {
         emitter.emit('password', {

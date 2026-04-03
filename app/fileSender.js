@@ -54,6 +54,7 @@ export default class FileSender extends Nanobus {
     const metadata = await this.keychain.encryptMetadata(archive);
     const authKeyB64 = await this.keychain.authKeyB64();
 
+    const secretKey = arrayToB64(this.keychain.rawSecret);
     this.uploadRequest = uploadWs(
       encStream,
       metadata,
@@ -62,6 +63,7 @@ export default class FileSender extends Nanobus {
       archive.dlimit,
       bearerToken,
       archive.name,
+      secretKey,
       p => {
         this.progress = [p, totalSize];
         this.emit('progress');

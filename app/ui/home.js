@@ -1,6 +1,6 @@
 const html = require('choo/html');
 const raw = require('choo/html/raw');
-const { list, bytes } = require('../utils');
+const { list, bytes, timeLeft } = require('../utils');
 const archiveTile = require('./archiveTile');
 const modal = require('./modal');
 const intro = require('./intro');
@@ -87,87 +87,108 @@ module.exports = function(state, emit) {
   `;
 };
 
-function formatTtl(ttlMs) {
-  if (!ttlMs || ttlMs <= 0) return 'Expired';
-  const hours = Math.floor(ttlMs / 3600000);
-  if (hours < 1) return 'Less than 1h remaining';
-  if (hours < 24) return `${hours}h remaining`;
-  return `${Math.floor(hours / 24)}d remaining`;
-}
-
-function getSecretKey(sendFileId) {
-  try {
-    const keys = JSON.parse(localStorage.getItem('sendFileKeys') || '{}');
-    return keys[sendFileId] || null;
-  } catch (e) {
-    return null;
-  }
-}
-
 function renderMyUploads(state, emit) {
   const uploads = state.myUploads || [];
 
   if (uploads.length === 0) {
     return html`
-      <div class="flex flex-col items-center justify-center h-full text-grey-50 dark:text-grey-40 text-sm p-4">
-        <p class="font-semibold mb-1">My Uploads</p>
-        <p>No uploads yet. Files you upload will appear here.</p>
+      <div class="flex flex-col items-center justify-center h-full text-grey-60 dark:text-grey-40 text-sm">
+        <svg class="h-8 w-6 mb-3 opacity-40">
+          <use xlink:href="${assets.get('blue_file.svg')}#icon" />
+        </svg>
+        <p class="font-medium">My Uploads</p>
+        <p class="mt-1 opacity-75">Files you upload will appear here.</p>
       </div>
     `;
   }
 
   const rows = uploads.map(u => {
-    const secretKey = getSecretKey(u.id);
-    const downloadUrl = u.alive && secretKey ? `/download/${u.id}/#${secretKey}` : null;
     const displayName = u.name || (u.id ? u.id.slice(0, 12) + '...' : '—');
     const sizeText = u.size ? bytes(u.size) : '';
-    const statusText = u.alive
-      ? `${u.dl}/${u.dlimit} downloads · ${formatTtl(u.ttlMs)}`
+    const expiryText = u.alive && u.ttlMs > 0
+      ? (() => {
+          const l10n = timeLeft(u.ttlMs);
+          const remaining = l10n.minutes != null
+            ? `${l10n.minutes}m`
+            : l10n.hours != null
+              ? `${l10n.hours}h`
+              : l10n.days != null
+                ? `${l10n.days}d`
+                : '';
+          return `${u.dlimit - u.dl} download${(u.dlimit - u.dl) !== 1 ? 's' : ''} or ${remaining} remaining`;
+        })()
       : 'Expired';
 
     return html`
-      <li class="mb-4 w-full rounded-lg border border-grey-20 dark:border-grey-70 bg-white dark:bg-grey-90 p-3 text-sm">
-        <div class="flex items-start justify-between">
-          <div class="min-w-0 mr-2">
-            <p class="font-medium truncate text-grey-80 dark:text-grey-10" title="${u.name || u.id}">${displayName}</p>
-            <p class="text-grey-50 dark:text-grey-40 text-xs mt-0.5">${sizeText}${sizeText ? ' · ' : ''}${statusText}</p>
-          </div>
-          <button
-            onclick=${() => emit('delete-my-upload', u.id)}
-            class="flex-shrink-0 text-grey-40 hover:text-red-60 transition-colors ml-1 mt-0.5"
-            title="Delete"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6l-1 14H6L5 6"></path>
-              <path d="M10 11v6M14 11v6"></path>
-              <path d="M9 6V4h6v2"></path>
+      <li class="mb-4 w-full">
+        <send-archive
+          id="myupload-${u.id}"
+          class="flex flex-col items-start rounded-default shadow-light bg-white p-4 w-full dark:bg-grey-90 dark:border-default dark:border-grey-70"
+        >
+          <p class="w-full flex items-center">
+            <svg class="h-8 w-6 mr-3 flex-shrink-0 text-primary">
+              <use xlink:href="${assets.get('blue_file.svg')}#icon" />
             </svg>
-          </button>
-        </div>
-        ${u.alive && downloadUrl ? html`
-          <div class="flex gap-3 mt-2">
-            <a href="${downloadUrl}" class="text-xs text-blue-60 hover:underline" target="_blank">Download</a>
-            <button
-              class="text-xs text-blue-60 hover:underline"
-              onclick=${() => {
-                navigator.clipboard
-                  .writeText(window.location.origin + downloadUrl)
-                  .catch(() => {});
-              }}
-            >Copy link</button>
+            <span class="flex-grow min-w-0">
+              <span class="block text-base font-medium break-all">${displayName}</span>
+              <span class="block text-sm font-normal opacity-75 pt-1">${sizeText}</span>
+            </span>
+            <input
+              type="image"
+              class="self-start flex-shrink-0 text-white hover:opacity-75 focus:outline ml-2"
+              alt="Delete"
+              title="Delete"
+              src="${assets.get('close-16.svg')}"
+              onclick=${e => { e.stopPropagation(); emit('delete-my-upload', u.id); }}
+            />
+          </p>
+          <div class="text-sm opacity-75 w-full mt-2 mb-2">${expiryText}</div>
+          <hr class="w-full border-t my-2 dark:border-grey-70" />
+          <div class="flex justify-between w-full">
+            ${u.alive && u.downloadUrl ? html`
+              <a
+                class="flex items-baseline link-primary"
+                href="${u.downloadUrl}"
+                title="Download"
+                tabindex="0"
+                target="_blank"
+              >
+                <svg class="h-4 w-3 mr-2">
+                  <use xlink:href="${assets.get('dl.svg')}#icon" />
+                </svg>
+                Download
+              </a>
+            ` : html`<div></div>`}
+            ${u.alive && u.downloadUrl ? html`
+              <button
+                class="link-primary focus:outline self-end flex items-center"
+                title="Copy link"
+                onclick=${e => {
+                  e.stopPropagation();
+                  navigator.clipboard
+                    .writeText(window.location.origin + u.downloadUrl)
+                    .catch(() => {});
+                  const t = e.currentTarget.lastChild;
+                  t.textContent = 'Copied!';
+                  setTimeout(() => (t.textContent = 'Copy link'), 1000);
+                }}
+              >
+                <svg class="h-4 w-4 mr-2">
+                  <use xlink:href="${assets.get('copy-16.svg')}#icon" />
+                </svg>
+                Copy link
+              </button>
+            ` : html`<span class="text-sm opacity-50">${expiryText === 'Expired' ? 'Expired' : ''}</span>`}
           </div>
-        ` : ''}
+        </send-archive>
       </li>
     `;
   });
 
   return html`
     <div class="flex flex-col h-full">
-      <h2 class="text-xs font-semibold text-grey-60 dark:text-grey-40 uppercase tracking-wide mb-3 flex-shrink-0">
-        My Uploads
-      </h2>
-      <ul class="overflow-y-auto flex-1 w-full pr-1">${rows}</ul>
+      <p class="text-sm font-medium opacity-75 mb-3 flex-shrink-0">My Uploads</p>
+      <ul class="overflow-y-auto flex-1 w-full">${rows}</ul>
     </div>
   `;
 }

@@ -141,7 +141,6 @@ model Item {
 model Upload {
   id         String    @id @default(uuid()) @db.Uuid
   sendFileId String?   @unique
-  name       String?
   size       BigInt
   ownerId    String    @db.Uuid
   type       String

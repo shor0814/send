@@ -192,6 +192,7 @@ async function upload(
   dlimit,
   bearerToken,
   name,
+  secretKey,
   onprogress,
   canceller
 ) {
@@ -215,7 +216,8 @@ async function upload(
       bearer: bearerToken,
       timeLimit,
       dlimit,
-      name: name || undefined
+      name: name || undefined,
+      secretKey: secretKey || undefined
     };
     const uploadInfoResponse = listenForResponse(ws, canceller);
     ws.send(JSON.stringify(fileMeta));
@@ -271,6 +273,7 @@ export function uploadWs(
   dlimit,
   bearerToken,
   name,
+  secretKey,
   onprogress
 ) {
   const canceller = { cancelled: false };
@@ -288,6 +291,7 @@ export function uploadWs(
       dlimit,
       bearerToken,
       name,
+      secretKey,
       onprogress,
       canceller
     )

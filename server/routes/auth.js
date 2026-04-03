@@ -106,6 +106,8 @@ exports.deleteUpload = async function(req, res) {
     } catch (e) {
       // storage may already be gone — continue with DB cleanup
     }
+    // Delete Items first (no cascade on the relation)
+    await prisma.item.deleteMany({ where: { uploadId: upload.id } });
     await prisma.upload.delete({ where: { sendFileId } });
     res.sendStatus(200);
   } catch (e) {
@@ -121,6 +123,7 @@ exports.uploads = async function(req, res) {
   try {
     const rows = await prisma.upload.findMany({
       where: { ownerId: req.localUser.id },
+      include: { items: { take: 1 } },
       orderBy: { createdAt: 'desc' },
       take: 50
     });
@@ -139,15 +142,22 @@ exports.uploads = async function(req, res) {
           // file may have been deleted — leave alive=false
         }
       }
+      const item = row.items[0] || null;
+      const wrappedKey = item ? item.wrappedKey : null;
+      const downloadUrl =
+        alive && row.sendFileId && wrappedKey
+          ? `/download/${row.sendFileId}/#${wrappedKey}`
+          : null;
       return {
         id: row.sendFileId,
-        name: row.name || null,
+        name: item ? item.name : null,
         size: Number(row.size),
         createdAt: row.createdAt,
         alive,
         ttlMs,
         dlimit,
-        dl
+        dl,
+        downloadUrl
       };
     }));
     res.json(enriched);

@@ -76,8 +76,9 @@ export default function(state, emitter) {
       }
       state.modal = null;
       state.signupMode = null;
+      // Fetch uploads before rendering so the list is ready on first paint
+      state.myUploads = await state.user.fetchMyUploads().catch(() => []);
       emitter.emit('replaceState', '/');
-      emitter.emit('refresh-my-uploads');
       render();
     } catch (e) {
       state.loginError = e.message || 'Authentication failed';
@@ -87,6 +88,7 @@ export default function(state, emitter) {
 
   emitter.on('logout', async () => {
     await state.user.logout();
+    state.myUploads = [];
     emitter.emit('pushState', '/');
   });
 

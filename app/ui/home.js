@@ -70,9 +70,9 @@ module.exports = function(state, emit) {
         <div class="px-2 w-full md:px-0 md:mr-8 md:w-1/2">${left}</div>
         <div class="mt-6 w-full md:w-1/2 md:-m-2">
           ${right}
-          ${myUploads}
         </div>
       </section>
+      ${myUploads}
       <p class="text-center text-grey-40 dark:text-grey-60 text-xs mt-2 pb-1 select-none">
         v${state.buildVersion || '?'}
       </p>
@@ -116,7 +116,7 @@ function renderMyUploads(state) {
   });
 
   return html`
-    <div class="mt-6 w-full">
+    <div class="mt-4 w-full px-6 md:px-8">
       <h2 class="text-sm font-semibold text-grey-60 dark:text-grey-40 uppercase tracking-wide mb-2">
         My Uploads
       </h2>

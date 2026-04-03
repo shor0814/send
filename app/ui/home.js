@@ -1,6 +1,6 @@
 const html = require('choo/html');
 const raw = require('choo/html/raw');
-const { list } = require('../utils');
+const { list, bytes } = require('../utils');
 const archiveTile = require('./archiveTile');
 const modal = require('./modal');
 const intro = require('./intro');
@@ -59,6 +59,8 @@ module.exports = function(state, emit) {
       ? intro(state)
       : list(archives, 'p-2 h-full overflow-y-auto w-full', 'mb-4 w-full');
 
+  const myUploads = renderMyUploads(state);
+
   return html`
     <main class="main">
       ${state.modal && modal(state, emit)}
@@ -66,8 +68,59 @@ module.exports = function(state, emit) {
         class="h-full w-full p-6 md:p-8 overflow-hidden md:flex md:flex-row md:rounded-xl md:shadow-big"
       >
         <div class="px-2 w-full md:px-0 md:mr-8 md:w-1/2">${left}</div>
-        <div class="mt-6 w-full md:w-1/2 md:-m-2">${right}</div>
+        <div class="mt-6 w-full md:w-1/2 md:-m-2">
+          ${right}
+          ${myUploads}
+        </div>
       </section>
     </main>
   `;
 };
+
+function renderMyUploads(state) {
+  if (!state.user || !state.user.isLocalAuth || !state.user.loggedIn) {
+    return '';
+  }
+  const uploads = state.myUploads || [];
+
+  function formatTtl(ttlMs) {
+    if (ttlMs <= 0) return 'Expired';
+    const hours = Math.floor(ttlMs / 3600000);
+    if (hours < 24) return `${hours}h remaining`;
+    return `${Math.floor(hours / 24)}d remaining`;
+  }
+
+  const rows = uploads.map(u => {
+    const downloadText = u.alive
+      ? `${u.dl}/${u.dlimit} downloads · ${formatTtl(u.ttlMs)}`
+      : 'Expired';
+    const sizeText = u.size ? bytes(u.size) : '';
+    const shortId = u.id ? u.id.slice(0, 8) + '...' : '—';
+    const downloadUrl = u.id ? `/download/${u.id}/` : null;
+
+    return html`
+      <li class="flex items-center justify-between py-2 border-b border-grey-20 dark:border-grey-70 last:border-0 text-sm">
+        <div class="flex flex-col min-w-0 mr-2">
+          ${downloadUrl && u.alive
+            ? html`<a href="${downloadUrl}" class="link-primary font-medium truncate" title="${u.id}">${shortId}</a>`
+            : html`<span class="text-grey-50 font-medium truncate" title="${u.id || '—'}">${shortId}</span>`
+          }
+          <span class="text-grey-50 dark:text-grey-40 text-xs">${sizeText}</span>
+        </div>
+        <span class="text-grey-50 dark:text-grey-40 whitespace-nowrap text-xs">${downloadText}</span>
+      </li>
+    `;
+  });
+
+  return html`
+    <div class="mt-6 w-full">
+      <h2 class="text-sm font-semibold text-grey-60 dark:text-grey-40 uppercase tracking-wide mb-2">
+        My Uploads
+      </h2>
+      ${uploads.length === 0
+        ? html`<p class="text-grey-50 dark:text-grey-40 text-sm">No uploads yet.</p>`
+        : html`<ul class="w-full">${rows}</ul>`
+      }
+    </div>
+  `;
+}

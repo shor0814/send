@@ -41,6 +41,7 @@ export default function(state, emitter) {
       faviconProgressbar.updateFavicon(0);
     });
     checkFiles();
+    emitter.emit('refresh-my-uploads');
   });
 
   emitter.on('render', () => {
@@ -49,6 +50,20 @@ export default function(state, emitter) {
 
   emitter.on('login', email => {
     state.user.login(email);
+  });
+
+  emitter.on('signup-mode', newMode => {
+    state.signupMode = newMode;
+    render();
+  });
+
+  emitter.on('refresh-my-uploads', async () => {
+    try {
+      state.myUploads = await state.user.fetchMyUploads();
+      render();
+    } catch (e) {
+      // non-fatal
+    }
   });
 
   emitter.on('login-local', async ({ email, password, name, mode }) => {
@@ -60,7 +75,9 @@ export default function(state, emitter) {
         await state.user.localLogin(email, password);
       }
       state.modal = null;
+      state.signupMode = null;
       emitter.emit('replaceState', '/');
+      emitter.emit('refresh-my-uploads');
       render();
     } catch (e) {
       state.loginError = e.message || 'Authentication failed';
@@ -179,6 +196,7 @@ export default function(state, emitter) {
       state.modal = state.capabilities.share
         ? shareDialog(ownedFile.name, ownedFile.url)
         : copyDialog(ownedFile.name, ownedFile.url);
+      emitter.emit('refresh-my-uploads');
     } catch (err) {
       if (err.message === '0') {
         //cancelled. do nothing

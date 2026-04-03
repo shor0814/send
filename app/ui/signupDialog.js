@@ -8,48 +8,28 @@ module.exports = function() {
     const isLocal = state.user && state.user.isLocalAuth;
 
     if (isLocal) {
-      return renderLocalForm(state, emit, close, DAYS);
+      return renderLocalForm(state, emit, close);
     }
     return renderFxaForm(state, emit, close, DAYS);
   };
 };
 
-function renderLocalForm(state, emit, close, DAYS) {
-  let mode = 'signin'; // 'signin' | 'register'
-  let error = null;
-  let submitting = false;
-
-  function rebuild() {
-    // force choo to re-render by emitting render
-    emit('render');
-  }
+function renderLocalForm(state, emit, close) {
+  // mode persists across re-renders via state.signupMode
+  const mode = state.signupMode || 'signin';
 
   function handleSubmit(event) {
     event.preventDefault();
-    if (submitting) return;
     const email = document.getElementById('local-email').value.trim();
     const password = document.getElementById('local-password').value;
-    const name = mode === 'register'
-      ? (document.getElementById('local-name') || {}).value
-      : undefined;
+    const nameEl = document.getElementById('local-name');
+    const name = nameEl ? nameEl.value : undefined;
 
     if (!email || !password) {
-      error = 'Email and password are required.';
-      return rebuild();
+      return;
     }
 
-    submitting = true;
-    error = null;
-    rebuild();
-
     emit('login-local', { email, password, name, mode });
-  }
-
-  function switchMode(newMode, event) {
-    event.preventDefault();
-    mode = newMode;
-    error = null;
-    rebuild();
   }
 
   return html`
@@ -61,13 +41,13 @@ function renderLocalForm(state, emit, close, DAYS) {
         <div class="flex border-b border-grey-30 mb-4">
           <button
             class="flex-1 py-2 text-center font-medium ${mode === 'signin' ? 'border-b-2 border-primary text-primary' : 'text-grey-50'}"
-            onclick=${e => switchMode('signin', e)}
+            onclick=${e => { e.preventDefault(); emit('signup-mode', 'signin'); }}
           >
             Sign In
           </button>
           <button
             class="flex-1 py-2 text-center font-medium ${mode === 'register' ? 'border-b-2 border-primary text-primary' : 'text-grey-50'}"
-            onclick=${e => switchMode('register', e)}
+            onclick=${e => { e.preventDefault(); emit('signup-mode', 'register'); }}
           >
             Register
           </button>
@@ -99,12 +79,11 @@ function renderLocalForm(state, emit, close, DAYS) {
             autocomplete="${mode === 'register' ? 'new-password' : 'current-password'}"
             required
           />
-          ${(error || state.loginError) ? html`<p class="text-red-500 text-sm mb-2">${error || state.loginError}</p>` : ''}
+          ${state.loginError ? html`<p class="text-red-500 text-sm mb-2">${state.loginError}</p>` : ''}
           <input
             class="btn rounded-lg w-full flex flex-shrink-0 items-center justify-center"
-            value="${submitting ? 'Please wait...' : (mode === 'signin' ? 'Sign In' : 'Create Account')}"
+            value="${mode === 'signin' ? 'Sign In' : 'Create Account'}"
             type="submit"
-            disabled="${submitting}"
           />
         </form>
 
@@ -124,8 +103,6 @@ function renderLocalForm(state, emit, close, DAYS) {
 }
 
 function renderFxaForm(state, emit, close, DAYS) {
-  let submitting = false;
-
   function emailish(str) {
     if (!str) return false;
     const a = str.split('@');
@@ -134,11 +111,8 @@ function renderFxaForm(state, emit, close, DAYS) {
 
   function submitEmail(event) {
     event.preventDefault();
-    if (submitting) return;
-    submitting = true;
     const el = document.getElementById('email-input');
-    const email = el.value;
-    emit('login', emailish(email) ? email : null);
+    emit('login', emailish(el.value) ? el.value : null);
   }
 
   return html`

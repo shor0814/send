@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../db');
 const config = require('../config');
+const storage = require('../storage');
 const mozlog = require('../log');
 
 const log = mozlog('send.auth');
@@ -86,6 +87,48 @@ exports.me = async function(req, res) {
     res.json({ id: user.id, email: user.email, name: user.name, tier: user.tier });
   } catch (e) {
     log.error('me', e);
+    res.sendStatus(500);
+  }
+};
+
+exports.uploads = async function(req, res) {
+  if (!req.localUser) {
+    return res.sendStatus(401);
+  }
+  try {
+    const rows = await prisma.upload.findMany({
+      where: { ownerId: req.localUser.id },
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    });
+    const enriched = await Promise.all(rows.map(async row => {
+      let alive = false, ttlMs = 0, dlimit = 1, dl = 0;
+      if (row.sendFileId) {
+        try {
+          const meta = await storage.metadata(row.sendFileId);
+          if (meta) {
+            alive = true;
+            ttlMs = await storage.ttl(row.sendFileId);
+            dlimit = meta.dlimit;
+            dl = meta.dl;
+          }
+        } catch (e) {
+          // file may have been deleted — leave alive=false
+        }
+      }
+      return {
+        id: row.sendFileId,
+        size: Number(row.size),
+        createdAt: row.createdAt,
+        alive,
+        ttlMs,
+        dlimit,
+        dl
+      };
+    }));
+    res.json(enriched);
+  } catch (e) {
+    log.error('uploads', e);
     res.sendStatus(500);
   }
 };

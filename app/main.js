@@ -60,7 +60,8 @@ if (process.env.NODE_ENV === 'production') {
     user: new User(storage, LIMITS, window.AUTH_CONFIG),
     transfer: null,
     fileInfo: null,
-    locale: locale()
+    locale: locale(),
+    myUploads: []
   };
 
   const app = routes(choo({ hash: true }));

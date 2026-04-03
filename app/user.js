@@ -134,6 +134,17 @@ export default class User {
     return this.loggedIn ? hashId(this.storage.id) : hashId(anonId);
   }
 
+  async fetchMyUploads() {
+    if (!this.isLocalAuth || !this.localToken) {
+      return [];
+    }
+    const res = await fetch('/api/auth/uploads', {
+      headers: { 'X-Local-Auth': this.localToken }
+    });
+    if (!res.ok) return [];
+    return res.json();
+  }
+
   async localLogin(email, password) {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
@@ -315,7 +326,7 @@ export default class User {
 
   async syncFileList() {
     let changes = { incoming: false, outgoing: false, downloadCount: false };
-    if (!this.loggedIn) {
+    if (!this.loggedIn || this.isLocalAuth) {
       return this.storage.merge();
     }
     let list = [];

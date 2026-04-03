@@ -59,7 +59,7 @@ module.exports = async function(req) {
       numFiles: 0
     },
     locale,
-    capabilities: { account: false },
+    capabilities: { account: !!(config.fxa_client_id || config.jwt_secret) },
     translate: getTranslator(locale),
     title: config.custom_title,
     description: config.custom_description,

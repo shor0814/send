@@ -26,6 +26,9 @@ module.exports = function(state) {
   const authConfig = state.authConfig
     ? `var AUTH_CONFIG = ${JSON.stringify(state.authConfig)};`
     : '';
+  const buildVersion = state.buildVersion
+    ? `var BUILD_VERSION = ${JSON.stringify(state.buildVersion)};`
+    : '';
 
   /* eslint-disable no-useless-escape */
   const jsconfig = `
@@ -50,6 +53,7 @@ module.exports = function(state) {
     state.downloadMetadata ? raw(JSON.stringify(state.downloadMetadata)) : '{}'
   };
   ${authConfig};
+  ${buildVersion};
   ${sentry}
   `;
   return state.cspNonce

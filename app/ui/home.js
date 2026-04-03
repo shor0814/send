@@ -7,9 +7,8 @@ const intro = require('./intro');
 const assets = require('../../common/assets');
 
 module.exports = function(state, emit) {
-  const archives = state.storage.files
-    .filter(archive => !archive.expired)
-    .map(archive => archiveTile(state, emit, archive));
+  const isLocalUser = state.user && state.user.isLocalAuth && state.user.loggedIn;
+
   let left = '';
   if (state.uploading) {
     left = archiveTile.uploading(state, emit);
@@ -19,47 +18,58 @@ module.exports = function(state, emit) {
     left = archiveTile.empty(state, emit);
   }
 
-  if (archives.length > 0 && state.WEB_UI.UPLOADS_LIST_NOTICE_HTML) {
-    archives.push(html`
-      <p
-        class="w-full p-2 border-default dark:border-grey-70 rounded-default text-orange-60 bg-yellow-40 text-center leading-normal"
-      >
-        ${raw(state.WEB_UI.UPLOADS_LIST_NOTICE_HTML)}
-      </p>
-    `);
-  }
+  let right;
+  if (isLocalUser) {
+    right = renderMyUploads(state, emit);
+  } else {
+    const archives = state.storage.files
+      .filter(archive => !archive.expired)
+      .map(archive => archiveTile(state, emit, archive));
 
-  archives.reverse();
-
-  if (archives.length > 0 && state.WEB_UI.SHOW_THUNDERBIRD_SPONSOR) {
-    archives.push(html`
-      <a
-        class="w-full p-2 border-default dark:border-grey-70 rounded-default text-orange-60 bg-yellow-40 text-center leading-normal d-block"
-        href="https://www.thunderbird.net/"
-      >
-        <svg
-          width="30"
-          height="30"
-          class="m-2 mr-3 d-inline-block align-middle"
+    if (archives.length > 0 && state.WEB_UI.UPLOADS_LIST_NOTICE_HTML) {
+      archives.push(html`
+        <p
+          class="w-full p-2 border-default dark:border-grey-70 rounded-default text-orange-60 bg-yellow-40 text-center leading-normal"
         >
-          <image
-            xlink:href="${assets.get('thunderbird-icon.svg')}"
-            src="${assets.get('thunderbird-icon.svg')}"
+          ${raw(state.WEB_UI.UPLOADS_LIST_NOTICE_HTML)}
+        </p>
+      `);
+    }
+
+    archives.reverse();
+
+    if (archives.length > 0 && state.WEB_UI.SHOW_THUNDERBIRD_SPONSOR) {
+      archives.push(html`
+        <a
+          class="w-full p-2 border-default dark:border-grey-70 rounded-default text-orange-60 bg-yellow-40 text-center leading-normal d-block"
+          href="https://www.thunderbird.net/"
+        >
+          <svg
             width="30"
             height="30"
-          />
-        </svg>
-        Sponsored by Thunderbird
-      </a>
-    `);
+            class="m-2 mr-3 d-inline-block align-middle"
+          >
+            <image
+              xlink:href="${assets.get('thunderbird-icon.svg')}"
+              src="${assets.get('thunderbird-icon.svg')}"
+              width="30"
+              height="30"
+            />
+          </svg>
+          Sponsored by Thunderbird
+        </a>
+      `);
+    }
+
+    right =
+      archives.length === 0
+        ? intro(state)
+        : list(archives, 'p-2 h-full overflow-y-auto w-full', 'mb-4 w-full');
   }
 
-  const right =
-    archives.length === 0
-      ? intro(state)
-      : list(archives, 'p-2 h-full overflow-y-auto w-full', 'mb-4 w-full');
-
-  const myUploads = renderMyUploads(state);
+  const rightPanelClass = isLocalUser
+    ? 'mt-6 w-full md:w-1/2 md:-m-2 overflow-y-auto'
+    : 'mt-6 w-full md:w-1/2 md:-m-2';
 
   return html`
     <main class="main">
@@ -68,11 +78,8 @@ module.exports = function(state, emit) {
         class="h-full w-full p-6 md:p-8 overflow-hidden md:flex md:flex-row md:rounded-xl md:shadow-big"
       >
         <div class="px-2 w-full md:px-0 md:mr-8 md:w-1/2">${left}</div>
-        <div class="mt-6 w-full md:w-1/2 md:-m-2">
-          ${right}
-        </div>
+        <div class="${rightPanelClass}">${right}</div>
       </section>
-      ${myUploads}
       <p class="text-center text-grey-40 dark:text-grey-60 text-xs mt-2 pb-1 select-none">
         v${state.buildVersion || '?'}
       </p>
@@ -80,50 +87,87 @@ module.exports = function(state, emit) {
   `;
 };
 
-function renderMyUploads(state) {
-  if (!state.user || !state.user.isLocalAuth || !state.user.loggedIn) {
-    return '';
+function formatTtl(ttlMs) {
+  if (!ttlMs || ttlMs <= 0) return 'Expired';
+  const hours = Math.floor(ttlMs / 3600000);
+  if (hours < 1) return 'Less than 1h remaining';
+  if (hours < 24) return `${hours}h remaining`;
+  return `${Math.floor(hours / 24)}d remaining`;
+}
+
+function getSecretKey(sendFileId) {
+  try {
+    const keys = JSON.parse(localStorage.getItem('sendFileKeys') || '{}');
+    return keys[sendFileId] || null;
+  } catch (e) {
+    return null;
   }
+}
+
+function renderMyUploads(state, emit) {
   const uploads = state.myUploads || [];
 
-  function formatTtl(ttlMs) {
-    if (ttlMs <= 0) return 'Expired';
-    const hours = Math.floor(ttlMs / 3600000);
-    if (hours < 24) return `${hours}h remaining`;
-    return `${Math.floor(hours / 24)}d remaining`;
+  if (uploads.length === 0) {
+    return html`
+      <div class="flex flex-col items-center justify-center h-full text-grey-50 dark:text-grey-40 text-sm p-4">
+        <p class="font-semibold mb-1">My Uploads</p>
+        <p>No uploads yet. Files you upload will appear here.</p>
+      </div>
+    `;
   }
 
   const rows = uploads.map(u => {
-    const downloadText = u.alive
+    const secretKey = getSecretKey(u.id);
+    const downloadUrl = u.alive && secretKey ? `/download/${u.id}/#${secretKey}` : null;
+    const displayName = u.name || (u.id ? u.id.slice(0, 12) + '...' : '—');
+    const sizeText = u.size ? bytes(u.size) : '';
+    const statusText = u.alive
       ? `${u.dl}/${u.dlimit} downloads · ${formatTtl(u.ttlMs)}`
       : 'Expired';
-    const sizeText = u.size ? bytes(u.size) : '';
-    const shortId = u.id ? u.id.slice(0, 8) + '...' : '—';
-    const downloadUrl = u.id ? `/download/${u.id}/` : null;
 
     return html`
-      <li class="flex items-center justify-between py-2 border-b border-grey-20 dark:border-grey-70 last:border-0 text-sm">
-        <div class="flex flex-col min-w-0 mr-2">
-          ${downloadUrl && u.alive
-            ? html`<a href="${downloadUrl}" class="link-primary font-medium truncate" title="${u.id}">${shortId}</a>`
-            : html`<span class="text-grey-50 font-medium truncate" title="${u.id || '—'}">${shortId}</span>`
-          }
-          <span class="text-grey-50 dark:text-grey-40 text-xs">${sizeText}</span>
+      <li class="mb-4 w-full rounded-lg border border-grey-20 dark:border-grey-70 bg-white dark:bg-grey-90 p-3 text-sm">
+        <div class="flex items-start justify-between">
+          <div class="min-w-0 mr-2">
+            <p class="font-medium truncate text-grey-80 dark:text-grey-10" title="${u.name || u.id}">${displayName}</p>
+            <p class="text-grey-50 dark:text-grey-40 text-xs mt-0.5">${sizeText}${sizeText ? ' · ' : ''}${statusText}</p>
+          </div>
+          <button
+            onclick=${() => emit('delete-my-upload', u.id)}
+            class="flex-shrink-0 text-grey-40 hover:text-red-60 transition-colors ml-1 mt-0.5"
+            title="Delete"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6l-1 14H6L5 6"></path>
+              <path d="M10 11v6M14 11v6"></path>
+              <path d="M9 6V4h6v2"></path>
+            </svg>
+          </button>
         </div>
-        <span class="text-grey-50 dark:text-grey-40 whitespace-nowrap text-xs">${downloadText}</span>
+        ${u.alive && downloadUrl ? html`
+          <div class="flex gap-3 mt-2">
+            <a href="${downloadUrl}" class="text-xs text-blue-60 hover:underline" target="_blank">Download</a>
+            <button
+              class="text-xs text-blue-60 hover:underline"
+              onclick=${() => {
+                navigator.clipboard
+                  .writeText(window.location.origin + downloadUrl)
+                  .catch(() => {});
+              }}
+            >Copy link</button>
+          </div>
+        ` : ''}
       </li>
     `;
   });
 
   return html`
-    <div class="mt-4 w-full px-6 md:px-8">
-      <h2 class="text-sm font-semibold text-grey-60 dark:text-grey-40 uppercase tracking-wide mb-2">
+    <div class="flex flex-col h-full">
+      <h2 class="text-xs font-semibold text-grey-60 dark:text-grey-40 uppercase tracking-wide mb-3 flex-shrink-0">
         My Uploads
       </h2>
-      ${uploads.length === 0
-        ? html`<p class="text-grey-50 dark:text-grey-40 text-sm">No uploads yet.</p>`
-        : html`<ul class="w-full">${rows}</ul>`
-      }
+      <ul class="overflow-y-auto flex-1 w-full pr-1">${rows}</ul>
     </div>
   `;
 }

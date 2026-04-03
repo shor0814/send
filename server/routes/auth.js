@@ -91,6 +91,29 @@ exports.me = async function(req, res) {
   }
 };
 
+exports.deleteUpload = async function(req, res) {
+  if (!req.localUser) {
+    return res.sendStatus(401);
+  }
+  const { sendFileId } = req.params;
+  try {
+    const upload = await prisma.upload.findUnique({ where: { sendFileId } });
+    if (!upload || upload.ownerId !== req.localUser.id) {
+      return res.sendStatus(403);
+    }
+    try {
+      await storage.del(sendFileId);
+    } catch (e) {
+      // storage may already be gone — continue with DB cleanup
+    }
+    await prisma.upload.delete({ where: { sendFileId } });
+    res.sendStatus(200);
+  } catch (e) {
+    log.error('deleteUpload', e);
+    res.sendStatus(500);
+  }
+};
+
 exports.uploads = async function(req, res) {
   if (!req.localUser) {
     return res.sendStatus(401);
@@ -118,6 +141,7 @@ exports.uploads = async function(req, res) {
       }
       return {
         id: row.sendFileId,
+        name: row.name || null,
         size: Number(row.size),
         createdAt: row.createdAt,
         alive,

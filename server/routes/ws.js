@@ -111,6 +111,7 @@ module.exports = function(ws, req) {
             data: {
               id: crypto.randomUUID(),
               sendFileId: newId,
+              name: fileInfo.name || null,
               size: BigInt(actualBytes),
               ownerId: localUser.id,
               type: 'application/octet-stream',

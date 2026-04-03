@@ -96,6 +96,7 @@ module.exports = function(app) {
   app.post('/api/auth/login', authRoutes.login);
   app.get('/api/auth/me', auth.local, authRoutes.me);
   app.get('/api/auth/uploads', auth.local, authRoutes.uploads);
+  app.delete('/api/auth/uploads/:sendFileId', auth.local, authRoutes.deleteUpload);
 
   app.get('/', language, pages.index);
   app.get('/config', function(req, res) {

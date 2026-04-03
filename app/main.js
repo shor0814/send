@@ -61,7 +61,8 @@ if (process.env.NODE_ENV === 'production') {
     transfer: null,
     fileInfo: null,
     locale: locale(),
-    myUploads: []
+    myUploads: [],
+    buildVersion: window.BUILD_VERSION || null
   };
 
   const app = routes(choo({ hash: true }));

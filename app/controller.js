@@ -92,6 +92,27 @@ export default function(state, emitter) {
     emitter.emit('pushState', '/');
   });
 
+  emitter.on('delete-my-upload', async sendFileId => {
+    try {
+      const res = await fetch(`/api/auth/uploads/${sendFileId}`, {
+        method: 'DELETE',
+        headers: { 'X-Local-Auth': state.user.localToken }
+      });
+      if (res.ok) {
+        state.myUploads = state.myUploads.filter(u => u.id !== sendFileId);
+        // Remove secret key from localStorage
+        try {
+          const keys = JSON.parse(localStorage.getItem('sendFileKeys') || '{}');
+          delete keys[sendFileId];
+          localStorage.setItem('sendFileKeys', JSON.stringify(keys));
+        } catch (e) {}
+        render();
+      }
+    } catch (e) {
+      // non-fatal
+    }
+  });
+
   emitter.on('removeUpload', file => {
     state.archive.remove(file);
     if (state.archive.numFiles === 0) {
@@ -188,6 +209,16 @@ export default function(state, emitter) {
       faviconProgressbar.updateFavicon(0);
 
       state.storage.addFile(ownedFile);
+      // Save secretKey to localStorage so My Uploads can construct download links
+      if (state.user.isLocalAuth && ownedFile.id && ownedFile.secretKey) {
+        try {
+          const keys = JSON.parse(localStorage.getItem('sendFileKeys') || '{}');
+          keys[ownedFile.id] = ownedFile.secretKey;
+          localStorage.setItem('sendFileKeys', JSON.stringify(keys));
+        } catch (e) {
+          // non-fatal
+        }
+      }
       // TODO integrate password into /upload request
       if (archive.password) {
         emitter.emit('password', {
@@ -198,7 +229,7 @@ export default function(state, emitter) {
       state.modal = state.capabilities.share
         ? shareDialog(ownedFile.name, ownedFile.url)
         : copyDialog(ownedFile.name, ownedFile.url);
-      emitter.emit('refresh-my-uploads');
+      state.myUploads = await state.user.fetchMyUploads().catch(() => state.myUploads);
     } catch (err) {
       if (err.message === '0') {
         //cancelled. do nothing

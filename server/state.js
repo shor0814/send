@@ -24,9 +24,13 @@ module.exports = async function(req) {
     try {
       authConfig = await getFxaConfig();
       authConfig.client_id = config.fxa_client_id;
+      authConfig.type = 'fxa';
     } catch (e) {
       // continue without accounts
     }
+  }
+  if (!authConfig && config.jwt_secret) {
+    authConfig = { type: 'local' };
   }
   const prefs = {};
   if (config.survey_url) {

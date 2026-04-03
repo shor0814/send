@@ -8,6 +8,7 @@ const auth = require('../middleware/auth');
 const language = require('../middleware/language');
 const pages = require('./pages');
 const filelist = require('./filelist');
+const authRoutes = require('./auth');
 const clientConstants = require('../clientConstants');
 
 const IS_DEV = config.env === 'development';
@@ -89,6 +90,12 @@ module.exports = function(app) {
   });
   app.use(bodyParser.json());
   app.use(bodyParser.text());
+
+  // Local auth endpoints
+  app.post('/api/auth/register', authRoutes.register);
+  app.post('/api/auth/login', authRoutes.login);
+  app.get('/api/auth/me', auth.local, authRoutes.me);
+
   app.get('/', language, pages.index);
   app.get('/config', function(req, res) {
     res.json(clientConstants);
@@ -109,7 +116,7 @@ module.exports = function(app) {
   app.get(`/api/metadata/:id${ID_REGEX}`, auth.hmac, require('./metadata'));
   app.get('/api/filelist/:id([\\w-]{16})', auth.fxa, filelist.get);
   app.post('/api/filelist/:id([\\w-]{16})', auth.fxa, filelist.post);
-  app.post('/api/upload', auth.fxa, require('./upload'));
+  app.post('/api/upload', auth.local, auth.fxa, require('./upload'));
   app.post(`/api/delete/:id${ID_REGEX}`, auth.owner, require('./delete'));
   app.post(`/api/password/:id${ID_REGEX}`, auth.owner, require('./password'));
   app.post(

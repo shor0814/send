@@ -1,10 +1,12 @@
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const storage = require('../storage');
 const config = require('../config');
 const mozlog = require('../log');
 const Limiter = require('../limiter');
 const fxa = require('../fxa');
 const { encryptedSize } = require('../../app/utils');
+const prisma = require('../db');
 
 const { Transform } = require('stream');
 
@@ -29,12 +31,22 @@ module.exports = function(ws, req) {
       const dlimit = fileInfo.dlimit || config.default_downloads;
       const metadata = fileInfo.fileMetadata;
       const auth = fileInfo.authorization;
-      const user = await fxa.verify(fileInfo.bearer);
+
+      // Try local JWT first, fall back to FxA
+      let localUser = null;
+      if (config.jwt_secret && fileInfo.bearer) {
+        try {
+          localUser = jwt.verify(fileInfo.bearer, config.jwt_secret);
+        } catch (e) {
+          // not a local JWT — may be FxA token, handled below
+        }
+      }
+      const user = localUser ? null : await fxa.verify(fileInfo.bearer);
       const maxFileSize = config.max_file_size;
       const maxExpireSeconds = config.max_expire_seconds;
       const maxDownloads = config.max_downloads;
 
-      if (config.fxa_required && !user) {
+      if (config.fxa_required && !user && !localUser) {
         ws.send(
           JSON.stringify({
             error: 401
@@ -90,6 +102,26 @@ module.exports = function(ws, req) {
       fileStream = wsStream.pipe(eof).pipe(limiter); // limiter needs to be the last in the chain
 
       await storage.set(newId, fileStream, meta, timeLimit);
+
+      // Track upload ownership in PostgreSQL for logged-in local users
+      if (localUser && localUser.id) {
+        try {
+          const actualBytes = limiter.length || 0;
+          await prisma.upload.create({
+            data: {
+              id: crypto.randomUUID(),
+              sendFileId: newId,
+              size: BigInt(actualBytes),
+              ownerId: localUser.id,
+              type: 'application/octet-stream',
+              createdAt: new Date()
+            }
+          });
+        } catch (e) {
+          log.error('pg-upload-create', e);
+          // non-fatal: upload still succeeds even if PG write fails
+        }
+      }
 
       if (ws.readyState === 1) {
         // if the socket is closed by a cancelled upload the stream

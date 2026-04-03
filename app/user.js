@@ -60,20 +60,54 @@ export default class User {
     return this.info.avatar || defaultAvatar;
   }
 
-  get name() {
-    return this.info.displayName;
+  get isLocalAuth() {
+    return this.authConfig && this.authConfig.type === 'local';
   }
 
-  get email() {
-    return this.info.email;
+  get localToken() {
+    try {
+      return localStorage.getItem('sendLocalToken');
+    } catch (e) {
+      return null;
+    }
   }
 
   get loggedIn() {
+    if (this.isLocalAuth) {
+      return !!this.localToken;
+    }
     return !!this.info.access_token;
   }
 
   get bearerToken() {
+    if (this.isLocalAuth) {
+      return this.localToken;
+    }
     return this.info.access_token;
+  }
+
+  get email() {
+    if (this.isLocalAuth) {
+      try {
+        const data = JSON.parse(localStorage.getItem('sendLocalUser') || '{}');
+        return data.email || null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return this.info.email;
+  }
+
+  get name() {
+    if (this.isLocalAuth) {
+      try {
+        const data = JSON.parse(localStorage.getItem('sendLocalUser') || '{}');
+        return data.name || data.email || null;
+      } catch (e) {
+        return null;
+      }
+    }
+    return this.info.displayName;
   }
 
   get refreshToken() {
@@ -98,6 +132,41 @@ export default class User {
 
   async deviceId() {
     return this.loggedIn ? hashId(this.storage.id) : hashId(anonId);
+  }
+
+  async localLogin(email, password) {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Login failed');
+    }
+    const data = await res.json();
+    localStorage.setItem('sendLocalToken', data.token);
+    localStorage.setItem('sendLocalUser', JSON.stringify({ id: data.id, email: data.email, name: data.name, tier: data.tier }));
+  }
+
+  async localRegister(email, password, name) {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Registration failed');
+    }
+    const data = await res.json();
+    localStorage.setItem('sendLocalToken', data.token);
+    localStorage.setItem('sendLocalUser', JSON.stringify({ id: data.id, email: data.email, name: data.name, tier: data.tier }));
+  }
+
+  localLogout() {
+    localStorage.removeItem('sendLocalToken');
+    localStorage.removeItem('sendLocalUser');
   }
 
   async startAuthFlow(trigger, utms = {}) {
@@ -208,6 +277,11 @@ export default class User {
   }
 
   async logout() {
+    if (this.isLocalAuth) {
+      this.localLogout();
+      this.storage.clearLocalFiles();
+      return;
+    }
     try {
       if (this.refreshToken) {
         await fetch(this.authConfig.revocation_endpoint, {

@@ -134,6 +134,8 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
     "prisma": "^5.22.0",
     "@dannycoates/express-ws": "^5.0.3",
     "@fluent/bundle": "^0.17.1",

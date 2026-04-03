@@ -1,5 +1,6 @@
 const assert = require('assert');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const storage = require('../storage');
 const config = require('../config');
 const fxa = require('../fxa');
@@ -77,5 +78,22 @@ module.exports = {
     } else {
       next();
     }
+  },
+
+  local: function(req, res, next) {
+    req.localUser = null;
+    if (!config.jwt_secret) {
+      return next();
+    }
+    const header = req.header('X-Local-Auth');
+    if (!header) {
+      return next();
+    }
+    try {
+      req.localUser = jwt.verify(header, config.jwt_secret);
+    } catch (e) {
+      // invalid or expired token — treat as anonymous
+    }
+    next();
   }
 };

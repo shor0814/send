@@ -51,6 +51,23 @@ export default function(state, emitter) {
     state.user.login(email);
   });
 
+  emitter.on('login-local', async ({ email, password, name, mode }) => {
+    state.loginError = null;
+    try {
+      if (mode === 'register') {
+        await state.user.localRegister(email, password, name);
+      } else {
+        await state.user.localLogin(email, password);
+      }
+      state.modal = null;
+      emitter.emit('replaceState', '/');
+      render();
+    } catch (e) {
+      state.loginError = e.message || 'Authentication failed';
+      render();
+    }
+  });
+
   emitter.on('logout', async () => {
     await state.user.logout();
     emitter.emit('pushState', '/');

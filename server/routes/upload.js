@@ -4,6 +4,7 @@ const config = require('../config');
 const mozlog = require('../log');
 const Limiter = require('../limiter');
 const { encryptedSize } = require('../../app/utils');
+const prisma = require('../db');
 
 const log = mozlog('send.upload');
 
@@ -28,6 +29,26 @@ module.exports = async function(req, res) {
     //this hasn't been updated to expiration time setting yet
     //if you want to fallback to this code add this
     await storage.set(newId, fileStream, meta, config.default_expire_seconds);
+
+    // Track upload ownership in PostgreSQL for logged-in local users
+    if (req.localUser && req.localUser.id) {
+      try {
+        await prisma.upload.create({
+          data: {
+            id: crypto.randomUUID(),
+            sendFileId: newId,
+            size: BigInt(limiter.length || 0),
+            ownerId: req.localUser.id,
+            type: req.header('Content-Type') || 'application/octet-stream',
+            createdAt: new Date()
+          }
+        });
+      } catch (e) {
+        log.error('pg-upload-create', e);
+        // non-fatal
+      }
+    }
+
     const url = `${config.deriveBaseUrl(req)}/download/${newId}/`;
     res.set('WWW-Authenticate', `send-v1 ${meta.nonce}`);
     res.json({

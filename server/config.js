@@ -224,6 +224,12 @@ const conf = convict({
     default: '',
     env: 'FXA_CSP_PROFILEIMAGE_URL'
   },
+  jwt_secret: {
+    format: String,
+    default: '',
+    env: 'JWT_SECRET',
+    doc: 'Secret for signing local auth JWTs. Generate with: openssl rand -base64 32'
+  },
   survey_url: {
     format: String,
     default: '',
